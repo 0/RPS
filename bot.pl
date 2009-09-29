@@ -20,6 +20,9 @@ my @history;
 # Incremented once for each use by opponent.
 my @opponent_count = (0, 0, 0);
 
+# The maximum deviation from the max to be considered.
+my $freq_threshold = 0.1;
+
 ### It's what you think it is.
 #
 sub max {
@@ -45,7 +48,7 @@ sub out {
 	my $max = max (@opponent_count);
 	my @pool;
 	foreach my $a (ROCK, PAPER, SCISSORS) {
-		push @pool, $a if $opponent_count[$a] == $max;
+		push @pool, $a if $max == 0 || abs ($opponent_count[$a] - $max) / $max < $freq_threshold;
 	}
 	return will_beat($pool[int (@pool * rand)]);
 }
