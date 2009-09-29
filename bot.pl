@@ -17,12 +17,37 @@ use constant LOSS	=> 2;
 # [your move, their move, outcome], each [012]
 my @history;
 
+# Incremented once for each use by opponent.
+my @opponent_count = (0, 0, 0);
+
+### It's what you think it is.
+
+sub max {
+	my $max;
+	foreach my $x (@_) {
+		$max = $x if ! defined $max || $max < $x;
+	}
+	return $max;
+}
+
+### Determine what hand beats a particular hand.
+
+sub will_beat {
+	my $a = shift;
+	return ($a + 1) % 3;
+}
+
 ### iO
 ## Uses the history to determine the next move
 
 sub out {
-print @{$history[$#history]},"\n" if @history;
-	return int (3 * rand);
+	# Frequency analysis of opponent's throws.
+	my $max = max (@opponent_count);
+	my @pool;
+	foreach my $a (ROCK, PAPER, SCISSORS) {
+		push @pool, $a if $opponent_count[$a] == $max;
+	}
+	return will_beat($pool[int (@pool * rand)]);
 }
 
 ### Io
@@ -31,6 +56,7 @@ print @{$history[$#history]},"\n" if @history;
 
 sub in {
 	my ($a, $b, $r) = @_;
+
 	my $o;
 	if ($r =~ /^w/i) {
 		$o = WIN;
@@ -40,6 +66,8 @@ sub in {
 		$o = LOSS;
 	}
 	push @history, [$a, $b, $o];
+
+	++$opponent_count[$b];
 }
 
 ### Main loop.
@@ -52,7 +80,7 @@ sub in {
 # X				=> The move to make, where X is [012]
 
 while (<STDIN>) {
-	last if /^done$/i;
-	print out (),"\n" and next if /^go$/i;
+	last if /^done/i;
+	print out (),"\n" and next if /^go/i;
 	in ($1, $2, $3) and next if /^outcome ([012]) ([012]) ([wdl])/i;
 }
