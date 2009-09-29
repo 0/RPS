@@ -21,7 +21,7 @@ my @history;
 my @opponent_count = (0, 0, 0);
 
 ### It's what you think it is.
-
+#
 sub max {
 	my $max;
 	foreach my $x (@_) {
@@ -31,7 +31,7 @@ sub max {
 }
 
 ### Determine what hand beats a particular hand.
-
+#
 sub will_beat {
 	my $a = shift;
 	return ($a + 1) % 3;
@@ -39,7 +39,7 @@ sub will_beat {
 
 ### iO
 ## Uses the history to determine the next move
-
+#
 sub out {
 	# Frequency analysis of opponent's throws.
 	my $max = max (@opponent_count);
@@ -53,7 +53,7 @@ sub out {
 ### Io
 ## Takes the outcome of the last throw and records it
 ## Args: my move; opponent's move; outcome ([wdl])
-
+#
 sub in {
 	my ($a, $b, $r) = @_;
 
@@ -78,7 +78,7 @@ sub in {
 #				   where X and Y are [012] and Z is (WIN|DRAW|LOSS)
 ## 1 possible output:
 # X				=> The move to make, where X is [012]
-
+#
 while (<STDIN>) {
 	last if /^done/i;
 	print out (),"\n" and next if /^go/i;
