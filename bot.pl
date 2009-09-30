@@ -51,18 +51,18 @@ sub alg_freq {
 	return will_beat($pool[int (@pool * rand)]);
 }
 
-sub random {
+sub alg_random {
 	return int (3 * rand ());
 }
 
 my %algorithms = (
-	alg_freq	=> {
+	freq		=> {
 		code	=> \&alg_freq,
-		values	=> [0.01, 0.05, 0.1, 0.2, 0.5],	#freq_threshold
+		values	=> [0.01, 0.05, 0.1, 0.2, 0.5], #freq_threshold
 		success	=> [0, 0, 0, 0, 0],
 	},
 	random		=> {
-		code	=> \&random,
+		code	=> \&alg_random,
 		values	=> [0],
 		success	=> [0],
 	},
