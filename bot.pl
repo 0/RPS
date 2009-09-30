@@ -88,11 +88,11 @@ sub out {
 		for (my $i = 0; $i < @{$algorithms{$a}->{values}}; ++$i) {
 #print STDERR join " ", ($a, $algorithms{$a}->{values}->[$i], $algorithms{$a}->{success}->[$i], "\n");
 			if (! defined $max_suc || $algorithms{$a}->{success}->[$i] > $max_suc) {
-				($max_alg, $max_val, $max_suc) = ($a, $algorithms{$a}->{values}->[$i], $algorithms{$a}->{success}->[$i]);
+				($max_alg, $max_val, $max_suc) = ($a, $i, $algorithms{$a}->{success}->[$i]);
 			}
 		}
 	}
-#print STDERR "\tUsing $max_alg $max_val\n";
+#print STDERR "\tUsing $max_alg ", $algorithms{$max_alg}->{values}->[$max_val], "\n";
 	return $algorithms{$max_alg}->{code}->($algorithms{$max_alg}->{values}->[$max_val]);
 }
 
