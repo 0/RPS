@@ -14,7 +14,12 @@ use constant WIN	=> 0;
 use constant DRAW	=> 1;
 use constant LOSS	=> 2;
 
+use constant YOUR	=> 0;
+use constant THEIR	=> 1;
+use constant RESULT	=> 2;
+
 # [your move, their move, outcome], each [012]
+# newest <=> oldest
 my @history;
 
 # Incremented once for each use by opponent.
@@ -38,6 +43,12 @@ sub will_beat {
 	return ($a + 1) % 3;
 }
 
+### Returns [012] for a random throw
+#
+sub random_throw {
+	return int (3 * rand ());
+}
+
 #### Algorithms:
 
 sub alg_freq {
@@ -52,7 +63,7 @@ sub alg_freq {
 }
 
 sub alg_random {
-	return int (3 * rand ());
+	return random_throw ();
 }
 
 my %algorithms = (
@@ -114,7 +125,7 @@ sub in {
 	} else { # Assume loss
 		$o = LOSS;
 	}
-	push @history, [$a, $b, $o];
+	unshift @history, [$a, $b, $o];
 
 	++$opponent_count[$b];
 }
