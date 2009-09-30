@@ -18,6 +18,7 @@ use constant LOSS	=> 2;
 my @history;
 
 # Incremented once for each use by opponent.
+# used by alg_freq
 my @opponent_count = (0, 0, 0);
 
 ### It's what you think it is.
@@ -37,13 +38,11 @@ sub will_beat {
 	return ($a + 1) % 3;
 }
 
-# The maximum deviation from the max to be considered.
-my $freq_threshold = 0.1;
-
 #### Algorithms:
 
 sub alg_freq {
 	# Frequency analysis of opponent's throws.
+	my $freq_threshold = shift;
 	my $max = max (@opponent_count);
 	my @pool;
 	foreach my $a (ROCK, PAPER, SCISSORS) {
@@ -59,25 +58,31 @@ sub random {
 my %algorithms = (
 	alg_freq	=> {
 		code	=> \&alg_freq,
-		success	=> 0,
+		values	=> [0.01, 0.05, 0.1, 0.2, 0.5],	#freq_threshold
+		success	=> [0, 0, 0, 0, 0],
 	},
 	random		=> {
 		code	=> \&random,
-		success	=> 0,
-	}
+		values	=> [0],
+		success	=> [0],
+	},
 );
 
 ### iO
 ## Uses the history to determine the next move
 #
 sub out {
-	my ($max_a, $max_v);
+	my ($max_alg, $max_val, $max_suc);
 	foreach my $a (keys %algorithms) {
-#print STDERR join " ", ($a, $algorithms{$a}->{success}, "\n");
-		($max_a, $max_v) = ($a, $algorithms{$a}->{success}) if ! defined $max_v || $algorithms{$a}->{success} > $max_v;
+		for (my $i = 0; $i < @{$algorithms{$a}->{values}}; ++$i) {
+#print STDERR join " ", ($a, $algorithms{$a}->{values}->[$i], $algorithms{$a}->{success}->[$i], "\n");
+			if (! defined $max_suc || $algorithms{$a}->{success}->[$i] > $max_suc) {
+				($max_alg, $max_val, $max_suc) = ($a, $algorithms{$a}->{values}->[$i], $algorithms{$a}->{success}->[$i]);
+			}
+		}
 	}
-#print STDERR "\tUsing $max_a\n";
-	return &{$algorithms{$max_a}->{code}};
+#print STDERR "\tUsing $max_alg $max_val\n";
+	return $algorithms{$max_alg}->{code}->($algorithms{$max_alg}->{values}->[$max_val]);
 }
 
 ### Io
@@ -88,14 +93,16 @@ sub in {
 	my ($a, $b, $r) = @_;
 
 	# Grade how the algorithms would have performed
-	foreach my $alg (keys %algorithms) {
-		my $r = &{$algorithms{$alg}->{code}};
-		if ($r == will_beat ($b)) {
+	foreach my $a (keys %algorithms) {
+		for (my $i = 0; $i < @{$algorithms{$a}->{values}}; ++$i) {
+			my $r = $algorithms{$a}->{code}->($algorithms{$a}->{values}->[$i]);
+			if ($r == will_beat ($b)) {
 #print STDERR "$a PLUS cause $r $b\n";
-			++$algorithms{$alg}->{success};
-		} elsif ($r != $b) {
+				++$algorithms{$a}->{success}->[$i];
+			} elsif ($r != $b) {
 #print STDERR "$a MINUS cause $r $b\n";
-			--$algorithms{$alg}->{success};
+				--$algorithms{$a}->{success}->[$i];
+			}
 		}
 	}
 
