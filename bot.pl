@@ -20,9 +20,6 @@ my @history;
 # Incremented once for each use by opponent.
 my @opponent_count = (0, 0, 0);
 
-# The maximum deviation from the max to be considered.
-my $freq_threshold = 0.1;
-
 ### It's what you think it is.
 #
 sub max {
@@ -40,10 +37,12 @@ sub will_beat {
 	return ($a + 1) % 3;
 }
 
-### iO
-## Uses the history to determine the next move
-#
-sub out {
+# The maximum deviation from the max to be considered.
+my $freq_threshold = 0.1;
+
+#### Algorithms:
+
+sub alg_freq {
 	# Frequency analysis of opponent's throws.
 	my $max = max (@opponent_count);
 	my @pool;
@@ -53,12 +52,50 @@ sub out {
 	return will_beat($pool[int (@pool * rand)]);
 }
 
+sub random {
+	return int (3 * rand ());
+}
+
+my @algorithms = (
+	{
+		name	=> 'alg_freq',
+		success	=> 0,
+		code	=> \&alg_freq,
+	},{
+		name	=> 'random',
+		success	=> 0,
+		code	=> \&random,
+	}
+);
+
+### iO
+## Uses the history to determine the next move
+#
+sub out {
+	my ($max_a, $max_v);
+	for (my $i = 0; $i < @algorithms; ++$i) {
+#print STDERR join " ", ($i, $algorithms[$i]->{success}, "\n");
+		($max_a, $max_v) = ($i, $algorithms[$i]->{success}) if ! defined $max_v || $algorithms[$i]->{success} > $max_v;
+	}
+#print STDERR "\tUsing ",$algorithms[$max_a]->{name},"\n";
+	return &{$algorithms[$max_a]->{code}};
+}
+
 ### Io
 ## Takes the outcome of the last throw and records it
 ## Args: my move; opponent's move; outcome ([wdl])
 #
 sub in {
 	my ($a, $b, $r) = @_;
+
+	# Grade how the algorithms would have performed
+	for (my $i = 0; $i < @algorithms; ++$i) {
+		if (&{$algorithms[$i]->{code}} == will_beat($b)) {
+			++$algorithms[$i]->{success};
+		} elsif (&{$algorithms[$i]->{code}} != $b) {
+			--$algorithms[$i]->{success};
+		}
+	}
 
 	my $o;
 	if ($r =~ /^w/i) {
@@ -85,5 +122,5 @@ sub in {
 while (<STDIN>) {
 	last if /^done/i;
 	print out (),"\n" and next if /^go/i;
-	in ($1, $2, $3) and next if /^outcome ([012]) ([012]) ([wdl])/i;
+	in ($1, $2, $3) and next if /^outcome\s+([012])\s+([012])\s+([wdl])/i;
 }
