@@ -49,6 +49,18 @@ sub random_throw {
 	return int (3 * rand ());
 }
 
+sub compare_history {
+	my ($a, $b) = @_;
+	for (my $i = 0; $i < @{$a} && $i < @{$b}; ++$i) {
+		foreach my $p (YOUR, THEIR) {
+			if ($a->[$i]->[$p] != $b->[$i]->[$p]) {
+				return 0;
+			}
+		}
+	}
+	return 1;
+}
+
 #### Algorithms:
 
 sub alg_freq {
@@ -62,6 +74,23 @@ sub alg_freq {
 	return will_beat($pool[int (@pool * rand)]);
 }
 
+sub alg_pattern {
+	# Pattern matching.
+	my $history_distance = shift;
+	my $max_history = $history_distance < scalar @history ? $history_distance : scalar @history;
+	my ($max_len, $max_answer) = (undef, random_throw ());
+	for (my $i = 0; 2 * $i <= $max_history; ++$i) {
+		for (my $j = 0; 2 * ($i + 1) + $j <= $max_history; ++$j) {
+			if (compare_history ([@history[0..$i]], [@history[$i+1+$j..2*$i+$j+1]])) {
+				($max_len, $max_answer) = ($i, will_beat ($history[$i+$j]->[THEIR])) if ! defined $max_len || $i > $max_len;
+			} else {
+				next;
+			}
+		}
+	}
+	return $max_answer;
+}
+
 sub alg_random {
 	return random_throw ();
 }
@@ -71,6 +100,11 @@ my %algorithms = (
 		code	=> \&alg_freq,
 		values	=> [0.01, 0.05, 0.1, 0.2, 0.5], #freq_threshold
 		success	=> [0, 0, 0, 0, 0],
+	},
+	pattern		=> {
+		code	=> \&alg_pattern,
+		values	=> [1, 5, 10, 25], #history_distance
+		success	=> [0, 0, 0, 0],
 	},
 	random		=> {
 		code	=> \&alg_random,
