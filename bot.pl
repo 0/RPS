@@ -56,15 +56,14 @@ sub random {
 	return int (3 * rand ());
 }
 
-my @algorithms = (
-	{
-		name	=> 'alg_freq',
-		success	=> 0,
+my %algorithms = (
+	alg_freq	=> {
 		code	=> \&alg_freq,
-	},{
-		name	=> 'random',
 		success	=> 0,
+	},
+	random		=> {
 		code	=> \&random,
+		success	=> 0,
 	}
 );
 
@@ -73,12 +72,12 @@ my @algorithms = (
 #
 sub out {
 	my ($max_a, $max_v);
-	for (my $i = 0; $i < @algorithms; ++$i) {
-#print STDERR join " ", ($i, $algorithms[$i]->{success}, "\n");
-		($max_a, $max_v) = ($i, $algorithms[$i]->{success}) if ! defined $max_v || $algorithms[$i]->{success} > $max_v;
+	foreach my $a (keys %algorithms) {
+#print STDERR join " ", ($a, $algorithms{$a}->{success}, "\n");
+		($max_a, $max_v) = ($a, $algorithms{$a}->{success}) if ! defined $max_v || $algorithms{$a}->{success} > $max_v;
 	}
-#print STDERR "\tUsing ",$algorithms[$max_a]->{name},"\n";
-	return &{$algorithms[$max_a]->{code}};
+#print STDERR "\tUsing $max_a\n";
+	return &{$algorithms{$max_a}->{code}};
 }
 
 ### Io
@@ -89,11 +88,14 @@ sub in {
 	my ($a, $b, $r) = @_;
 
 	# Grade how the algorithms would have performed
-	for (my $i = 0; $i < @algorithms; ++$i) {
-		if (&{$algorithms[$i]->{code}} == will_beat($b)) {
-			++$algorithms[$i]->{success};
-		} elsif (&{$algorithms[$i]->{code}} != $b) {
-			--$algorithms[$i]->{success};
+	foreach my $alg (keys %algorithms) {
+		my $r = &{$algorithms{$alg}->{code}};
+		if ($r == will_beat ($b)) {
+#print STDERR "$a PLUS cause $r $b\n";
+			++$algorithms{$alg}->{success};
+		} elsif ($r != $b) {
+#print STDERR "$a MINUS cause $r $b\n";
+			--$algorithms{$alg}->{success};
 		}
 	}
 
