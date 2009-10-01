@@ -76,19 +76,23 @@ sub alg_freq {
 
 # Pattern matching.
 sub alg_pattern {
+	return random_throw () if @history <= 0;
+
 	my $history_distance = shift;
 	my $max_history = $history_distance < scalar @history ? $history_distance : scalar @history;
-	my ($max_len, $max_answer) = (undef, random_throw ());
-	for (my $i = 0; 2 * $i <= $max_history; ++$i) {
-		for (my $j = 0; 2 * ($i + 1) + $j <= $max_history; ++$j) {
-			if (compare_history ([@history[0..$i]], [@history[$i+1+$j..2*$i+$j+1]])) {
-				($max_len, $max_answer) = ($i, will_beat ($history[$i+$j]->[THEIR])) if ! defined $max_len || $i > $max_len;
-			} else {
-				next;
+
+	my $match_last = 1;
+	for (my $len = 1; 2 * $len <= $max_history; ++$len) {
+		my $match;
+		for (my $x = max ($match_last, $len); $len + $x <= $max_history; ++$x) {
+			if (compare_history ([@history[0..$len-1]], [@history[$x..$x+$len-1]])) {
+				$match = $x;
 			}
 		}
+		last if ! defined $match;
+		$match_last = $match;
 	}
-	return $max_answer;
+	return will_beat ($history[$match_last-1]->[THEIR]);
 }
 
 # When all else fails...
