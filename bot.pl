@@ -100,6 +100,11 @@ sub alg_random {
 	return random_throw ();
 }
 
+### Dispatch
+# code		=> reference to sub; args: value
+# values	=> array of values to try
+# success	=> foreach value: success rate
+# notest	=> do not check success rate (for random)
 my %algorithms = (
 	freq		=> {
 		code	=> \&alg_freq,
@@ -115,6 +120,7 @@ my %algorithms = (
 		code	=> \&alg_random,
 		values	=> [0],
 		success	=> [],
+		notest	=> 1,
 	},
 );
 
@@ -144,6 +150,7 @@ sub in {
 
 	# Grade how the algorithms would have performed
 	foreach my $a (keys %algorithms) {
+		next if $algorithms{$a}->{notest};
 		for (my $i = 0; $i < @{$algorithms{$a}->{values}}; ++$i) {
 			my $r = $algorithms{$a}->{code}->($algorithms{$a}->{values}->[$i]);
 			if ($r == will_beat ($b)) {
