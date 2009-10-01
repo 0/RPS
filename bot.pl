@@ -63,6 +63,15 @@ sub compare_history {
 
 #### Algorithms:
 
+my $alg_pattern_match_last;
+my $alg_pattern_len;
+
+# Reset per-throw values
+sub throw_reset {
+	$alg_pattern_match_last = 1;
+	$alg_pattern_len = 1;
+}
+
 # Frequency analysis of opponent's throws.
 sub alg_freq {
 	my $freq_threshold = shift;
@@ -81,8 +90,11 @@ sub alg_pattern {
 	my $history_distance = shift;
 	my $max_history = $history_distance < scalar @history ? $history_distance : scalar @history;
 
-	my $match_last = 1;
-	for (my $len = 1; 2 * $len <= $max_history; ++$len) {
+	# load
+	my $match_last = $alg_pattern_match_last;
+	my $len = $alg_pattern_len;
+
+	for (; 2 * $len <= $max_history; ++$len) {
 		my $match;
 		for (my $x = max ($match_last, $len); $len + $x <= $max_history; ++$x) {
 			if (compare_history ([@history[0..$len-1]], [@history[$x..$x+$len-1]])) {
@@ -92,6 +104,11 @@ sub alg_pattern {
 		last if ! defined $match;
 		$match_last = $match;
 	}
+
+	# save
+	$alg_pattern_match_last = $match_last;
+	$alg_pattern_len = $len;
+
 	return will_beat ($history[$match_last-1]->[THEIR]);
 }
 
@@ -113,7 +130,7 @@ my %algorithms = (
 	},
 	pattern		=> {
 		code	=> \&alg_pattern,
-		values	=> [1, 5, 10, 25], #history_distance
+		values	=> [1, 5, 10, 25, 50, 100], #history_distance
 		success	=> [],
 	},
 	random		=> {
@@ -138,6 +155,9 @@ sub out {
 		}
 	}
 #print STDERR "\tUsing $max_alg ", $algorithms{$max_alg}->{values}->[$max_val], "\n";
+
+	throw_reset ();
+
 	return $algorithms{$max_alg}->{code}->($algorithms{$max_alg}->{values}->[$max_val]);
 }
 
@@ -147,6 +167,8 @@ sub out {
 #
 sub in {
 	my ($a, $b, $r) = @_;
+
+	throw_reset ();
 
 	# Grade how the algorithms would have performed
 	foreach my $a (keys %algorithms) {
