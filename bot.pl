@@ -99,6 +99,7 @@ sub alg_pattern {
 		for (my $x = max ($match_last, $len); $len + $x <= $max_history; ++$x) {
 			if (compare_history ([@history[0..$len-1]], [@history[$x..$x+$len-1]])) {
 				$match = $x;
+				last;
 			}
 		}
 		last if ! defined $match;
