@@ -69,7 +69,7 @@ sub alg_freq {
 	my $max = max (@opponent_count);
 	my @pool;
 	foreach my $a (ROCK, PAPER, SCISSORS) {
-		push @pool, $a if $max == 0 || abs ($opponent_count[$a] - $max) / $max < $freq_threshold;
+		push @pool, $a if $max == 0 || abs ($opponent_count[$a] - $max) / $max <= $freq_threshold;
 	}
 	return will_beat($pool[int (@pool * rand)]);
 }
@@ -108,7 +108,7 @@ sub alg_random {
 my %algorithms = (
 	freq		=> {
 		code	=> \&alg_freq,
-		values	=> [0.01, 0.05, 0.1, 0.2, 0.5], #freq_threshold
+		values	=> [0, 0.001, 0.01], #freq_threshold
 		success	=> [],
 	},
 	pattern		=> {
