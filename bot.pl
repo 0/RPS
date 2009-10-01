@@ -63,8 +63,8 @@ sub compare_history {
 
 #### Algorithms:
 
+# Frequency analysis of opponent's throws.
 sub alg_freq {
-	# Frequency analysis of opponent's throws.
 	my $freq_threshold = shift;
 	my $max = max (@opponent_count);
 	my @pool;
@@ -74,8 +74,8 @@ sub alg_freq {
 	return will_beat($pool[int (@pool * rand)]);
 }
 
+# Pattern matching.
 sub alg_pattern {
-	# Pattern matching.
 	my $history_distance = shift;
 	my $max_history = $history_distance < scalar @history ? $history_distance : scalar @history;
 	my ($max_len, $max_answer) = (undef, random_throw ());
@@ -91,6 +91,7 @@ sub alg_pattern {
 	return $max_answer;
 }
 
+# When all else fails...
 sub alg_random {
 	return random_throw ();
 }
