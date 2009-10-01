@@ -104,17 +104,17 @@ my %algorithms = (
 	freq		=> {
 		code	=> \&alg_freq,
 		values	=> [0.01, 0.05, 0.1, 0.2, 0.5], #freq_threshold
-		success	=> [0, 0, 0, 0, 0],
+		success	=> [],
 	},
 	pattern		=> {
 		code	=> \&alg_pattern,
 		values	=> [1, 5, 10, 25], #history_distance
-		success	=> [0, 0, 0, 0],
+		success	=> [],
 	},
 	random		=> {
 		code	=> \&alg_random,
 		values	=> [0],
-		success	=> [0],
+		success	=> [],
 	},
 );
 
@@ -167,6 +167,14 @@ sub in {
 	unshift @history, [$a, $b, $o];
 
 	++$opponent_count[$b];
+}
+
+### Load.
+#
+foreach my $alg (keys %algorithms) {
+	foreach my $n (@{$algorithms{$alg}->{values}}) {
+		push @{$algorithms{$alg}->{success}}, 0;
+	}
 }
 
 ### Main loop.
