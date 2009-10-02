@@ -16,9 +16,8 @@ use constant LOSS	=> 2;
 
 use constant YOUR	=> 0;
 use constant THEIR	=> 1;
-use constant RESULT	=> 2;
 
-# [your move, their move, outcome], each [012]
+# [your move, their move], each [012]
 # newest <=> oldest
 my @history;
 
@@ -181,7 +180,7 @@ sub out {
 ## Args: my move; opponent's move; outcome ([wdl])
 #
 sub in {
-	my ($a, $b, $r) = @_;
+	my ($a, $b) = @_;
 
 	throw_reset ();
 
@@ -203,15 +202,7 @@ sub in {
 		}
 	}
 
-	my $o;
-	if ($r =~ /^w/i) {
-		$o = WIN;
-	} elsif ($r =~ /^d/i) {
-		$o = DRAW;
-	} else { # Assume loss
-		$o = LOSS;
-	}
-	unshift @history, [$a, $b, $o];
+	unshift @history, [$a, $b];
 
 	++$self_count[$a];
 	++$opponent_count[$b];
@@ -238,5 +229,5 @@ foreach my $alg (keys %algorithms) {
 while (<STDIN>) {
 	last if /^done/i;
 	print out (),"\n" and next if /^go/i;
-	in ($1, $2, $3) and next if /^outcome\s+([012])\s+([012])\s+([wdl])/i;
+	in ($1, $2) and next if /^outcome\s+([012])\s+([012])/i;
 }
