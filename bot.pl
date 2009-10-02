@@ -22,8 +22,9 @@ use constant RESULT	=> 2;
 # newest <=> oldest
 my @history;
 
-# Incremented once for each use by opponent.
+# Incremented once for each use by self, opponent.
 # used by alg_freq
+my @self_count = (0, 0, 0);
 my @opponent_count = (0, 0, 0);
 
 ### It's what you think it is.
@@ -74,11 +75,15 @@ sub throw_reset {
 
 # Frequency analysis of opponent's throws.
 sub alg_freq {
+	my $rev = shift;
 	my $freq_threshold = shift;
-	my $max = max (@opponent_count);
+	my $max = max ($rev ? @self_count : @opponent_count);
 	my @pool;
 	foreach my $a (ROCK, PAPER, SCISSORS) {
-		push @pool, $a if $max == 0 || abs ($opponent_count[$a] - $max) / $max <= $freq_threshold;
+		if ($max == 0 || abs (($rev ? $self_count[$a] : $opponent_count[$a]) - $max) / $max <= $freq_threshold) {
+			push @pool, $a;
+#print STDERR "($rev) $a!\n";
+		}
 	}
 	return will_beat($pool[int (@pool * rand)]);
 }
@@ -87,6 +92,7 @@ sub alg_freq {
 sub alg_pattern {
 	return random_throw () if @history <= 0;
 
+	my $rev = shift;
 	my $history_distance = shift;
 	my $max_history = $history_distance < scalar @history ? $history_distance : scalar @history;
 
@@ -110,7 +116,7 @@ sub alg_pattern {
 	$alg_pattern_match_last = $match_last;
 	$alg_pattern_len = $len;
 
-	return will_beat ($history[$match_last-1]->[THEIR]);
+	return will_beat ($history[$match_last-1]->[$rev ? YOUR : THEIR]);
 }
 
 # When all else fails...
@@ -119,9 +125,9 @@ sub alg_random {
 }
 
 ### Dispatch
-# code		=> reference to sub; args: value
+# code		=> reference to sub; args: rev?, value
 # values	=> array of values to try
-# success	=> foreach value: success rate
+# success	=> foreach value, success rate: [normal, reversed]
 # notest	=> do not check success rate (for random)
 my %algorithms = (
 	freq		=> {
@@ -146,20 +152,28 @@ my %algorithms = (
 ## Uses the history to determine the next move
 #
 sub out {
-	my ($max_alg, $max_val, $max_suc);
+	my ($max_alg, $max_val, $max_rev, $max_suc);
 	foreach my $a (keys %algorithms) {
 		for (my $i = 0; $i < @{$algorithms{$a}->{values}}; ++$i) {
-#print STDERR join " ", ($a, $algorithms{$a}->{values}->[$i], $algorithms{$a}->{success}->[$i], "\n");
-			if (! defined $max_suc || $algorithms{$a}->{success}->[$i] > $max_suc) {
-				($max_alg, $max_val, $max_suc) = ($a, $i, $algorithms{$a}->{success}->[$i]);
+			foreach my $rev (0, 1) {
+#print STDERR join " ", ($a, $algorithms{$a}->{values}->[$i], ($rev ? 'R' : ' '), $algorithms{$a}->{success}->[$i]->[$rev], "\n");
+				if (! defined $max_suc || $algorithms{$a}->{success}->[$i]->[$rev] > $max_suc) {
+					($max_alg, $max_val, $max_rev, $max_suc) = ($a, $i, $rev, $algorithms{$a}->{success}->[$i]->[$rev]);
+				}
 			}
 		}
 	}
-#print STDERR "\tUsing $max_alg ", $algorithms{$max_alg}->{values}->[$max_val], "\n";
+
+#print STDERR "\tUsing $max_alg ", $algorithms{$max_alg}->{values}->[$max_val], ($max_rev ? ' R' : '  '), "\n";
 
 	throw_reset ();
 
-	return $algorithms{$max_alg}->{code}->($algorithms{$max_alg}->{values}->[$max_val]);
+	my $throw = $algorithms{$max_alg}->{code}->($max_rev, $algorithms{$max_alg}->{values}->[$max_val]);
+	if ($max_rev) {
+		return will_beat ($throw);
+	} else {
+		return $throw;
+	}
 }
 
 ### Io
@@ -175,13 +189,16 @@ sub in {
 	foreach my $a (keys %algorithms) {
 		next if $algorithms{$a}->{notest};
 		for (my $i = 0; $i < @{$algorithms{$a}->{values}}; ++$i) {
-			my $r = $algorithms{$a}->{code}->($algorithms{$a}->{values}->[$i]);
-			if ($r == will_beat ($b)) {
+			foreach my $rev (0, 1) {
+				my $r = $algorithms{$a}->{code}->($rev, $algorithms{$a}->{values}->[$i]);
+				$r = will_beat ($r) if $rev;
+				if ($r == will_beat ($b)) {
 #print STDERR "$a PLUS cause $r $b\n";
-				++$algorithms{$a}->{success}->[$i];
-			} elsif ($r != $b) {
+					++$algorithms{$a}->{success}->[$i]->[$rev];
+				} elsif ($r != $b) {
 #print STDERR "$a MINUS cause $r $b\n";
-				--$algorithms{$a}->{success}->[$i];
+					--$algorithms{$a}->{success}->[$i]->[$rev];
+				}
 			}
 		}
 	}
@@ -196,6 +213,7 @@ sub in {
 	}
 	unshift @history, [$a, $b, $o];
 
+	++$self_count[$a];
 	++$opponent_count[$b];
 }
 
@@ -203,7 +221,8 @@ sub in {
 #
 foreach my $alg (keys %algorithms) {
 	foreach my $n (@{$algorithms{$alg}->{values}}) {
-		push @{$algorithms{$alg}->{success}}, 0;
+		# One for normal, one for reverse mode.
+		push @{$algorithms{$alg}->{success}}, [0,0];
 	}
 }
 
