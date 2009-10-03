@@ -43,6 +43,13 @@ sub will_beat {
 	return ($a + 1) % 3;
 }
 
+### Determine what hand loses to a particular hand.
+#
+sub will_lose {
+	my $a = shift;
+	return ($a - 1) % 3;
+}
+
 ### Returns [012] for a random throw
 #
 sub random_throw {
@@ -74,8 +81,7 @@ sub throw_reset {
 
 # Frequency analysis of opponent's throws.
 sub alg_freq {
-	my $rev = shift;
-	my $freq_threshold = shift;
+	my ($rev, $ahead, $freq_threshold) = @_;
 	my $max = max ($rev ? @self_count : @opponent_count);
 	my @pool;
 	foreach my $a (ROCK, PAPER, SCISSORS) {
@@ -84,15 +90,22 @@ sub alg_freq {
 #print STDERR "($rev) $a!\n";
 		}
 	}
-	return will_beat($pool[int (@pool * rand)]);
+
+	my $answer = $pool[int (@pool * rand)];
+	if ($ahead == 0) {
+		return will_beat($answer);
+	} elsif ($ahead == 1) {
+		return $answer;
+	} else {
+		return will_lose($answer);
+	}
 }
 
 # Pattern matching.
 sub alg_pattern {
 	return random_throw () if @history <= 0;
 
-	my $rev = shift;
-	my $history_distance = shift;
+	my ($rev, $ahead, $history_distance) = @_;
 	my $max_history = $history_distance < scalar @history ? $history_distance : scalar @history;
 
 	# load
@@ -115,7 +128,14 @@ sub alg_pattern {
 	$alg_pattern_match_last = $match_last;
 	$alg_pattern_len = $len;
 
-	return will_beat ($history[$match_last-1]->[$rev ? YOUR : THEIR]);
+	my $answer = will_beat ($history[$match_last-1]->[$rev ? YOUR : THEIR]);
+	if ($ahead == 0) {
+		return will_beat($answer);
+	} elsif ($ahead == 1) {
+		return $answer;
+	} else {
+		return will_lose($answer);
+	}
 }
 
 # When all else fails...
@@ -124,9 +144,10 @@ sub alg_random {
 }
 
 ### Dispatch
-# code		=> reference to sub; args: rev?, value
+# code		=> reference to sub; args: rev?, n ahead, value
 # values	=> array of values to try
-# success	=> foreach value, success rate: [normal, reversed]
+# success	=> foreach value, success rate: [normal, reversed],
+#              and each is [normal, 1 ahead, 2 ahead]
 # notest	=> do not check success rate (for random)
 my %algorithms = (
 	freq		=> {
@@ -151,13 +172,15 @@ my %algorithms = (
 ## Uses the history to determine the next move
 #
 sub out {
-	my ($max_alg, $max_val, $max_rev, $max_suc);
+	my ($max_alg, $max_val, $max_rev, $max_ahd, $max_suc);
 	foreach my $a (keys %algorithms) {
 		for (my $i = 0; $i < @{$algorithms{$a}->{values}}; ++$i) {
 			foreach my $rev (0, 1) {
-#print STDERR join " ", ($a, $algorithms{$a}->{values}->[$i], ($rev ? 'R' : ' '), $algorithms{$a}->{success}->[$i]->[$rev], "\n");
-				if (! defined $max_suc || $algorithms{$a}->{success}->[$i]->[$rev] > $max_suc) {
-					($max_alg, $max_val, $max_rev, $max_suc) = ($a, $i, $rev, $algorithms{$a}->{success}->[$i]->[$rev]);
+				foreach my $j (0..2) {
+#print STDERR join " ", ($a, $algorithms{$a}->{values}->[$i], ($rev ? 'R' : ' '), $algorithms{$a}->{success}->[$i]->[$rev]->[$j], "\n");
+					if (! defined $max_suc || $algorithms{$a}->{success}->[$i]->[$rev]->[$j] > $max_suc) {
+						($max_alg, $max_val, $max_rev, $max_ahd, $max_suc) = ($a, $i, $rev, $j, $algorithms{$a}->{success}->[$i]->[$rev]->[$j]);
+					}
 				}
 			}
 		}
@@ -167,7 +190,7 @@ sub out {
 
 	throw_reset ();
 
-	my $throw = $algorithms{$max_alg}->{code}->($max_rev, $algorithms{$max_alg}->{values}->[$max_val]);
+	my $throw = $algorithms{$max_alg}->{code}->($max_rev, $max_ahd, $algorithms{$max_alg}->{values}->[$max_val]);
 	if ($max_rev) {
 		return will_beat ($throw);
 	} else {
@@ -189,14 +212,16 @@ sub in {
 		next if $algorithms{$a}->{notest};
 		for (my $i = 0; $i < @{$algorithms{$a}->{values}}; ++$i) {
 			foreach my $rev (0, 1) {
-				my $r = $algorithms{$a}->{code}->($rev, $algorithms{$a}->{values}->[$i]);
-				$r = will_beat ($r) if $rev;
-				if ($r == will_beat ($b)) {
+				foreach my $j (0..2) {
+					my $r = $algorithms{$a}->{code}->($rev, $j, $algorithms{$a}->{values}->[$i]);
+					$r = will_beat ($r) if $rev;
+					if ($r == will_beat ($b)) {
 #print STDERR "$a PLUS cause $r $b\n";
-					++$algorithms{$a}->{success}->[$i]->[$rev];
-				} elsif ($r != $b) {
+						++$algorithms{$a}->{success}->[$i]->[$rev]->[$j];
+					} elsif ($r != $b) {
 #print STDERR "$a MINUS cause $r $b\n";
-					--$algorithms{$a}->{success}->[$i]->[$rev];
+						--$algorithms{$a}->{success}->[$i]->[$rev]->[$j];
+					}
 				}
 			}
 		}
@@ -212,8 +237,9 @@ sub in {
 #
 foreach my $alg (keys %algorithms) {
 	foreach my $n (@{$algorithms{$alg}->{values}}) {
-		# One for normal, one for reverse mode.
-		push @{$algorithms{$alg}->{success}}, [0,0];
+		# One for normal, one for reverse mode
+		# Each has 3 values for 0, 1, 2 ahead
+		push @{$algorithms{$alg}->{success}}, [[0,0,0],[0,0,0]];
 	}
 }
 
