@@ -17,16 +17,33 @@ use constant LOSS	=> 2;
 use constant YOUR	=> 0;
 use constant THEIR	=> 1;
 
-# [your move, their move], each [012]
-# newest <=> oldest
+
+###
+### Global vars
+###
+
+### History
+## latest is always $history[0]
+#
 my @history;
 
-# Incremented once for each use by self, opponent.
-# used by alg_freq
+### Throw counters
+## used by alg_freq
+#
 my @self_count = (0, 0, 0);
 my @opponent_count = (0, 0, 0);
 
-### It's what you think it is.
+### Temporary save of alg_pattern's internal state
+#
+my $alg_pattern_match_last;
+my $alg_pattern_len;
+
+
+###
+### Helper routines
+###
+
+### It's what you think it is
 #
 sub max {
 	my $max;
@@ -36,26 +53,28 @@ sub max {
 	return $max;
 }
 
-### Determine what hand beats a particular hand.
+### Determine what hand beats a particular hand
 #
 sub will_beat {
 	my $a = shift;
 	return ($a + 1) % 3;
 }
 
-### Determine what hand loses to a particular hand.
+### Determine what hand loses to a particular hand
 #
 sub will_lose {
 	my $a = shift;
 	return ($a - 1) % 3;
 }
 
-### Returns [012] for a random throw
+### Return [012] for a random throw
 #
 sub random_throw {
 	return int (3 * rand ());
 }
 
+### Compare two given histories
+#
 sub compare_history {
 	my ($a, $b) = @_;
 	for (my $i = 0; $i < @{$a} && $i < @{$b}; ++$i) {
@@ -68,18 +87,20 @@ sub compare_history {
 	return 1;
 }
 
-#### Algorithms:
-
-my $alg_pattern_match_last;
-my $alg_pattern_len;
-
-# Reset per-throw values
+### Reset per-throw values
+#
 sub throw_reset {
 	$alg_pattern_match_last = 1;
 	$alg_pattern_len = 1;
 }
 
-# Frequency analysis of opponent's throws.
+
+###
+### Magic
+###
+
+### Frequency analysis of throws
+#
 sub alg_freq {
 	my ($rev, $ahead, $freq_threshold) = @_;
 	my $max = max ($rev ? @self_count : @opponent_count);
@@ -101,7 +122,8 @@ sub alg_freq {
 	}
 }
 
-# Pattern matching.
+### Pattern matching of history
+#
 sub alg_pattern {
 	return random_throw () if @history <= 0;
 
@@ -138,12 +160,18 @@ sub alg_pattern {
 	}
 }
 
-# When all else fails...
+### When all else fails...
+#
 sub alg_random {
 	return random_throw ();
 }
 
-### Dispatch
+
+###
+### Meta-magic
+###
+
+### Algorithms hash
 # code		=> reference to sub; args: rev?, n ahead, value
 # values	=> array of values to try
 # success	=> foreach value, success rate: [normal, reversed],
@@ -168,8 +196,12 @@ my %algorithms = (
 	},
 );
 
-### iO
-## Uses the history to determine the next move
+
+###
+### Low-level stuff
+###
+
+### Determine the next move and return it
 #
 sub out {
 	my ($max_alg, $max_val, $max_rev, $max_ahd, $max_suc);
@@ -198,9 +230,7 @@ sub out {
 	}
 }
 
-### Io
-## Takes the outcome of the last throw and records it
-## Args: my move; opponent's move; outcome ([wdl])
+### Take the outcome of the last throw and record it
 #
 sub in {
 	my ($a, $b) = @_;
@@ -233,7 +263,7 @@ sub in {
 	++$opponent_count[$b];
 }
 
-### Load.
+### Init
 #
 foreach my $alg (keys %algorithms) {
 	foreach my $n (@{$algorithms{$alg}->{values}}) {
