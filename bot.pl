@@ -1,5 +1,11 @@
 #!/usr/bin/perl
 
+### ^_^
+
+### TODO
+# Implement history frequency threshold
+# Abstract IO further
+
 use strict;
 use warnings;
 
