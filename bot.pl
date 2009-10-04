@@ -107,11 +107,11 @@ sub throw_reset {
 ### Frequency analysis of throws
 #
 sub alg_freq {
-	my ($rev, $ahead, $freq_threshold) = @_;
+	my ($rev, $ahead, $threshold) = @_;
 	my $max = max ($rev ? @self_count : @opponent_count);
 	my @pool;
 	foreach my $a (ROCK, PAPER, SCISSORS) {
-		if ($max == 0 || abs (($rev ? $self_count[$a] : $opponent_count[$a]) - $max) / $max <= $freq_threshold) {
+		if ($max == 0 || abs (($rev ? $self_count[$a] : $opponent_count[$a]) - $max) / $max <= $threshold) {
 			push @pool, $a;
 #print STDERR "($rev) $a!\n";
 		}
@@ -185,12 +185,12 @@ sub alg_random {
 my %algorithms = (
 	freq		=> {
 		code	=> \&alg_freq,
-		values	=> [0, 0.001, 0.01], #freq_threshold
+		values	=> [0, 0.001, 0.01], # threshold
 		success	=> [],
 	},
 	pattern		=> {
 		code	=> \&alg_pattern,
-		values	=> [1, 5, 10, 25, 50, 100], #history_distance
+		values	=> [1, 5, 10, 25, 50, 100], # history_distance
 		success	=> [],
 	},
 	random		=> {
