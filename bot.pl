@@ -4,7 +4,6 @@
 
 ### TODO
 # Implement history frequency threshold
-# Abstract IO further
 
 use strict;
 use warnings;
@@ -202,14 +201,9 @@ my %algorithms = (
 	},
 );
 
-
-###
-### Low-level stuff
-###
-
-### Determine the next move and return it
+### Choose best strategy
 #
-sub out {
+sub choose {
 	my ($max_alg, $max_val, $max_rev, $max_ahd, $max_suc);
 	foreach my $a (keys %algorithms) {
 		for (my $i = 0; $i < @{$algorithms{$a}->{values}}; ++$i) {
@@ -217,39 +211,37 @@ sub out {
 				foreach my $j (0..2) {
 #print STDERR join " ", ($a, $algorithms{$a}->{values}->[$i], ($rev ? 'R' : ' '), $algorithms{$a}->{success}->[$i]->[$rev]->[$j], "\n");
 					if (! defined $max_suc || $algorithms{$a}->{success}->[$i]->[$rev]->[$j] > $max_suc) {
-						($max_alg, $max_val, $max_rev, $max_ahd, $max_suc) = ($a, $i, $rev, $j, $algorithms{$a}->{success}->[$i]->[$rev]->[$j]);
+						($max_alg, $max_val, $max_rev, $max_ahd, $max_suc) =
+							($a, $i, $rev, $j, $algorithms{$a}->{success}->[$i]->[$rev]->[$j]);
 					}
 				}
 			}
 		}
 	}
 
-#print STDERR "\tUsing $max_alg ", $algorithms{$max_alg}->{values}->[$max_val], ($max_rev ? ' R' : '  '), "\n";
-
-	throw_reset ();
-
-	my $throw = $algorithms{$max_alg}->{code}->($max_rev, $max_ahd, $algorithms{$max_alg}->{values}->[$max_val]);
-	if ($max_rev) {
-		return will_beat ($throw);
-	} else {
-		return $throw;
-	}
+#print STDERR "\tUsing $max_alg ", $algorithms{$max_alg}->{values}->[$max_val], ($max_rev ? ' R ' : '   '), "$max_ahd\n";
+	return ($max_alg, $max_val, $max_rev, $max_ahd);
 }
 
-### Take the outcome of the last throw and record it
+### Return the result of throwing with the given parameters
 #
-sub in {
-	my ($a, $b) = @_;
+sub throw {
+	my ($alg, $val, $rev, $ahd) = @_;
+	my $throw = $algorithms{$alg}->{code}->($rev, $ahd, $algorithms{$alg}->{values}->[$val]);
+	return $throw;
+}
 
-	throw_reset ();
+### Grade how the algorithms would have performed
+#
+sub grade {
+	my $b = shift;
 
-	# Grade how the algorithms would have performed
 	foreach my $a (keys %algorithms) {
 		next if $algorithms{$a}->{notest};
 		for (my $i = 0; $i < @{$algorithms{$a}->{values}}; ++$i) {
 			foreach my $rev (0, 1) {
 				foreach my $j (0..2) {
-					my $r = $algorithms{$a}->{code}->($rev, $j, $algorithms{$a}->{values}->[$i]);
+					my $r = throw ($a, $i, $rev, $j);
 					$r = will_beat ($r) if $rev;
 					if ($r == will_beat ($b)) {
 #print STDERR "$a PLUS cause $r $b\n";
@@ -262,6 +254,33 @@ sub in {
 			}
 		}
 	}
+}
+
+
+###
+### Low-level stuff
+###
+
+### Determine the next move and return it for output
+#
+sub out {
+	my ($alg, $val, $rev, $ahd) = choose ();
+
+	my $throw = throw ($alg, $val, $rev, $ahd);
+
+	if ($rev) {
+		return will_beat ($throw);
+	} else {
+		return $throw;
+	}
+}
+
+### Record the outcome of the last throw
+#
+sub in {
+	my ($a, $b) = @_;
+
+	grade ($b);
 
 	unshift @history, [$a, $b];
 
@@ -289,6 +308,10 @@ foreach my $alg (keys %algorithms) {
 # X				=> The move to make, where X is [012]
 #
 while (<STDIN>) {
+	# Reset per-throw values
+	throw_reset ();
+
+	# Parse input
 	last if /^done/i;
 	print out (),"\n" and next if /^go/i;
 	in ($1, $2) and next if /^outcome\s+([012])\s+([012])/i;
