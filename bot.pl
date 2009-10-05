@@ -43,41 +43,35 @@ my @opponent_count = (0, 0, 0);
 ### It's what you think it is
 #
 sub max {
-	my $max;
-	foreach my $x (@_) {
-		$max = $x if ! defined $max || $max < $x;
-	}
+	my $max = shift;
+	$max < $_ and $max = $_ foreach (@_);
 	return $max;
 }
 
 ### And again
 #
 sub min {
-	my $min;
-	foreach my $x (@_) {
-		$min = $x if ! defined $min || $min > $x;
-	}
+	my $min = shift;
+	$min > $_ and $min = $_ foreach (@_);
 	return $min;
 }
 
 ### Determine what hand beats a particular hand
 #
 sub will_beat {
-	my $a = shift;
-	return ($a + 1) % 3;
+	return ($_[0] + 1) % 3;
 }
 
 ### Determine what hand loses to a particular hand
 #
 sub will_lose {
-	my $a = shift;
-	return ($a - 1) % 3;
+	return ($_[0] - 1) % 3;
 }
 
 ### Return [012] for a random throw
 #
 sub random_throw {
-	return int (3 * rand ());
+	return int (rand (3));
 }
 
 ### Compare two given histories
