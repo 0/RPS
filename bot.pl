@@ -2,9 +2,6 @@
 
 ### ^_^
 
-### TODO
-# Implement history frequency threshold
-
 use strict;
 use warnings;
 
@@ -38,11 +35,6 @@ my @history;
 my @self_count = (0, 0, 0);
 my @opponent_count = (0, 0, 0);
 
-### Temporary save of alg_pattern's internal state
-#
-my $alg_pattern_match_last;
-my $alg_pattern_len;
-
 
 ###
 ### Helper routines
@@ -56,6 +48,16 @@ sub max {
 		$max = $x if ! defined $max || $max < $x;
 	}
 	return $max;
+}
+
+### And again
+#
+sub min {
+	my $min;
+	foreach my $x (@_) {
+		$min = $x if ! defined $min || $min > $x;
+	}
+	return $min;
 }
 
 ### Determine what hand beats a particular hand
@@ -81,22 +83,18 @@ sub random_throw {
 ### Compare two given histories
 #
 sub compare_history {
-	my ($a, $b) = @_;
-	for (my $i = 0; $i < @{$a} && $i < @{$b}; ++$i) {
-		foreach my $p (YOUR, THEIR) {
-			if ($a->[$i]->[$p] != $b->[$i]->[$p]) {
-				return 0;
-			}
+	my ($a, $b, $threshold) = @_;
+	my ($unmatched, $total) = (0, min (scalar @{$a}, scalar @{$b}));
+	for (my $i = 0; $i < $total; ++$i) {
+		if ($a->[$i]->[YOUR] != $b->[$i]->[YOUR] ||
+				$a->[$i]->[THEIR] != $b->[$i]->[THEIR]) {
+			++$unmatched;
+		}
+		if ($unmatched / $total > $threshold) {
+			return 0;
 		}
 	}
 	return 1;
-}
-
-### Reset per-throw values
-#
-sub throw_reset {
-	$alg_pattern_match_last = 1;
-	$alg_pattern_len = 1;
 }
 
 
@@ -125,17 +123,15 @@ sub alg_freq {
 sub alg_pattern {
 	return random_throw () if @history <= 0;
 
-	my ($rev, $history_distance) = @_;
+	my ($rev, $history_distance, $threshold) = @_;
 	my $max_history = $history_distance < scalar @history ? $history_distance : scalar @history;
 
-	# load
-	my $match_last = $alg_pattern_match_last;
-	my $len = $alg_pattern_len;
+	my $match_last = 1;
 
-	for (; 2 * $len <= $max_history; ++$len) {
+	for (my $len = 1; 2 * $len <= $max_history; ++$len) {
 		my $match;
 		for (my $x = max ($match_last, $len); $len + $x <= $max_history; ++$x) {
-			if (compare_history ([@history[0..$len-1]], [@history[$x..$x+$len-1]])) {
+			if (compare_history ([@history[0..$len-1]], [@history[$x..$x+$len-1]], $threshold)) {
 				$match = $x;
 				last;
 			}
@@ -143,10 +139,6 @@ sub alg_pattern {
 		last if ! defined $match;
 		$match_last = $match;
 	}
-
-	# save
-	$alg_pattern_match_last = $match_last;
-	$alg_pattern_len = $len;
 
 	return will_beat ($history[$match_last-1]->[$rev ? YOUR : THEIR]);
 }
@@ -171,41 +163,72 @@ sub alg_random {
 my %algorithms = (
 	freq		=> {
 		code	=> \&alg_freq,
-		values	=> [0, 0.001, 0.01], # threshold
+		values	=> [[0, 0.001, 0.01]], # threshold
 		success	=> [],
 	},
 	pattern		=> {
 		code	=> \&alg_pattern,
-		values	=> [1, 5, 10, 25, 50, 100], # history_distance
+		values	=> [[1, 5, 10, 25, 50, 100], # history_distance
+					[0, 0.001, 0.01]], # threshold
 		success	=> [],
 	},
 	random		=> {
 		code	=> \&alg_random,
-		values	=> [0],
+		values	=> [[0]],
 		success	=> [],
 		notest	=> 1,
 	},
 );
+
+sub next_permutation {
+	my ($alg, @cur) = @_;
+
+	for (my $i = 0; $i < @{$algorithms{$alg}->{values}}; ++$i) {
+		++$cur[$i];
+		if ($cur[$i] < @{$algorithms{$alg}->{values}->[$i]}) {
+			return @cur;
+		} else {
+			$cur[$i] = 0;
+		}
+	}
+
+	return ();
+}
+
+sub do_permutation {
+	my ($something, @permutation) = @_;
+
+	for (my $i = 0; $i < @permutation; ++$i) {
+		if (! defined $something->[$permutation[$i]]) {
+			$something->[$permutation[$i]] = [];
+		}
+		$something = $something->[$permutation[$i]];
+	}
+
+	return $something;
+}
 
 ### Choose best strategy
 #
 sub choose {
 	my ($max_alg, $max_val, $max_rev, $max_ahd, $max_suc);
 	foreach my $a (keys %algorithms) {
-		for (my $i = 0; $i < @{$algorithms{$a}->{values}}; ++$i) {
+		my @permutation = (0) x @{$algorithms{$a}->{values}};
+		do {
+			my $permed_alg = do_permutation ($algorithms{$a}->{success}, @permutation);
 			foreach my $rev (0, 1) {
-				foreach my $j (0..2) {
-#print STDERR join " ", ($a, $algorithms{$a}->{values}->[$i], ($rev ? 'R' : ' '), $algorithms{$a}->{success}->[$i]->[$rev]->[$j], "\n");
-					if (! defined $max_suc || $algorithms{$a}->{success}->[$i]->[$rev]->[$j] > $max_suc) {
+				foreach my $ahd (0..2) {
+#print STDERR join " ", ($a, @permutation, ($rev ? 'R' : ' '), $ahd, $permed_alg->[$rev]->[$ahd], "\n");
+					if (! defined $max_suc || $permed_alg->[$rev]->[$ahd] > $max_suc) {
 						($max_alg, $max_val, $max_rev, $max_ahd, $max_suc) =
-							($a, $i, $rev, $j, $algorithms{$a}->{success}->[$i]->[$rev]->[$j]);
+							($a, [@permutation], $rev, $ahd, $permed_alg->[$rev]->[$ahd]);
 					}
 				}
 			}
-		}
+		} while (@permutation = next_permutation ($a, @permutation));
 	}
 
-#print STDERR "\tUsing $max_alg ", $algorithms{$max_alg}->{values}->[$max_val], ($max_rev ? ' R ' : '   '), "$max_ahd\n";
+#print STDERR "\tUsing $max_alg ", join (',' @{$max_val}), ($max_rev ? ' R ' : '   '), "$max_ahd\n";
 	return ($max_alg, $max_val, $max_rev, $max_ahd);
 }
 
@@ -213,7 +236,14 @@ sub choose {
 #
 sub throw {
 	my ($alg, $val, $rev, $ahd) = @_;
-	my $throw = $algorithms{$alg}->{code}->($rev, $algorithms{$alg}->{values}->[$val]);
+
+	my @args;
+	for (my $i = 0; $i < @{$val}; ++$i) {
+		push @args, $algorithms{$alg}->{values}->[$i]->[$val->[$i]];
+	}
+
+	my $throw = $algorithms{$alg}->{code}->($rev, @args);
+
 	if ($ahd == 0) {
 		$throw = will_beat($throw);
 	} elsif ($ahd == 2) {
@@ -229,21 +259,22 @@ sub grade {
 
 	foreach my $a (keys %algorithms) {
 		next if $algorithms{$a}->{notest};
-		for (my $i = 0; $i < @{$algorithms{$a}->{values}}; ++$i) {
+		my @permutation = (0) x @{$algorithms{$a}->{values}};
+		do {
+			my $permed_alg = do_permutation ($algorithms{$a}->{success}, @permutation);
 			foreach my $rev (0, 1) {
-				foreach my $j (0..2) {
-					my $r = throw ($a, $i, $rev, $j);
-#					$r = will_beat ($r) if $rev;
+				foreach my $ahd (0..2) {
+					my $r = throw ($a, [@permutation], $rev, $ahd);
 					if ($r == will_beat ($b)) {
 #print STDERR "$a PLUS cause $r $b\n";
-						++$algorithms{$a}->{success}->[$i]->[$rev]->[$j];
+						++$permed_alg->[$rev]->[$ahd];
 					} elsif ($r != $b) {
 #print STDERR "$a MINUS cause $r $b\n";
-						--$algorithms{$a}->{success}->[$i]->[$rev]->[$j];
+						--$permed_alg->[$rev]->[$ahd];
 					}
 				}
 			}
-		}
+		} while (@permutation = next_permutation ($a, @permutation));
 	}
 }
 
@@ -274,11 +305,14 @@ sub in {
 ### Init
 #
 foreach my $alg (keys %algorithms) {
-	foreach my $n (@{$algorithms{$alg}->{values}}) {
+	my @permutation = (0) x @{$algorithms{$alg}->{values}};
+	do {
+		my $permed_alg = do_permutation ($algorithms{$alg}->{success}, @permutation);
 		# One for normal, one for reverse mode
 		# Each has 3 values for 0, 1, 2 ahead
-		push @{$algorithms{$alg}->{success}}, [[0,0,0],[0,0,0]];
-	}
+		$permed_alg->[0] = [0,0,0];
+		$permed_alg->[1] = [0,0,0];
+	} while (@permutation = next_permutation ($alg, @permutation));
 }
 
 ### Main loop.
@@ -291,9 +325,6 @@ foreach my $alg (keys %algorithms) {
 # X				=> The move to make, where X is [012]
 #
 while (<STDIN>) {
-	# Reset per-throw values
-	throw_reset ();
-
 	# Parse input
 	last if /^done/i;
 	print out (),"\n" and next if /^go/i;
